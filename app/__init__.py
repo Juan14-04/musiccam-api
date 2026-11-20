@@ -6,6 +6,7 @@ from typing import Any
 from dotenv import load_dotenv
 from flask import Flask, send_from_directory
 from flask.typing import ResponseReturnValue
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.cli import registrar_comandos
 from app.common.errors import registrar_manejadores_errores
@@ -59,6 +60,9 @@ def create_app(config_name: str | None = None, overrides: dict[str, Any] | None 
     app = Flask(__name__)
     app.config.from_object(CONFIGURACIONES[nombre]())
     app.config.update(overrides or {})
+    if nombre == "production":
+        # Detrás de Nginx: toma la IP real del cliente (X-Forwarded-For) para el rate limit.
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)  # type: ignore[method-assign]
 
     validar_configuracion_pagos(app.config)
     validar_configuracion_streaming(app.config)
